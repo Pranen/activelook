@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Input – touch, gesture, queries</title>
+</head>
+<body>
+  <a class="back" href="./index.html">← All demos</a>
+  <h1>Input – touch, gesture, queries</h1>
+  <button id="connect" class="primary">Connect glasses</button>
+  <div class="row">
+    <button id="gon">Gesture sensor on</button>
+    <button id="goff">Gesture sensor off</button>
+  </div>
+  <div class="row">
+    <button id="version">Firmware version</button>
+    <button id="settings">Settings</button>
+    <button id="battery">Battery</button>
+    <button id="fonts">Fonts</button>
+  </div>
+  <div class="big" id="last">– waiting for input –</div>
+  <p class="hint">Press the temple or wave in front of the sensor. Raw values are logged and mirrored on the glasses.</p>
+  <div id="log">Ready.</div>
+  <script type="module" src="./input.ts"></script>
+</body>
+</html>

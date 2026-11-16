@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ActiveLook Demos</title>
+</head>
+<body>
+  <h1>@pranen/activelook – demos</h1>
+  <p>Small pages that drive ActiveLook glasses (e.g. ENGO 3) straight from the browser over Web Bluetooth.</p>
+  <p class="hint">
+    Needs Chrome or Edge on desktop/Android, or the Bluefy browser on iPhone (Safari has no Web Bluetooth).
+    Add <code>?mock</code> to a demo URL to try it without glasses, <code>?debug</code> to log every frame.
+  </p>
+  <ul class="cards">
+    <li><a href="./hello.html"><strong>Hello</strong><br>Text with rotation, font and position; test grid of the visible area.</a></li>
+    <li><a href="./calibrate.html"><strong>Calibrate</strong><br>Find the visible area of your glasses with a ruler and adjustable edges; check text placement.</a></li>
+    <li><a href="./input.html"><strong>Input</strong><br>Touch and gesture events, plus queries: firmware, settings, battery, fonts.</a></li>
+    <li><a href="./colors.html"><strong>Colors</strong><br>All 81 red-green colors, one by one or as a grid.</a></li>
+    <li><a href="./clock.html"><strong>Clock</strong><br>Live clock with date, colored battery level and a seconds bar.</a></li>
+    <li><a href="./app.html"><strong>App</strong><br>Several screens, paged with the temple button via <code>ScreenPager</code>.</a></li>
+  </ul>
+  <p class="hint"><a href="https://github.com/Pranen/activelook">Source on GitHub</a> · Unofficial, not affiliated with ActiveLook or ENGO.</p>
+  <div id="log" hidden></div>
+  <script type="module" src="./shared-style.ts"></script>
+</body>
+</html>

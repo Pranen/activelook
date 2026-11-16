@@ -1,0 +1,65 @@
+{
+  "name": "@pranen/activelook",
+  "version": "0.1.0",
+  "description": "Unofficial TypeScript library for ActiveLook smart glasses (e.g. ENGO 3) over Web Bluetooth.",
+  "keywords": [
+    "activelook",
+    "engo",
+    "smart-glasses",
+    "web-bluetooth",
+    "ble",
+    "hud"
+  ],
+  "license": "MIT",
+  "author": "Peter Brantschen",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pranen/activelook.git"
+  },
+  "homepage": "https://pranen.github.io/activelook/",
+  "bugs": "https://github.com/Pranen/activelook/issues",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "unpkg": "./dist/index.global.js",
+  "jsdelivr": "./dist/index.global.js",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "vite",
+    "build:demo": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@types/web-bluetooth": "^0.0.22",
+    "tsup": "^9.0.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  }
+}

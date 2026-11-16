@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Colors – the 81 RG colors</title>
+</head>
+<body>
+  <a class="back" href="./index.html">← All demos</a>
+  <h1>Colors – the 81 RG colors</h1>
+  <button id="connect" class="primary">Connect glasses</button>
+  <div class="row">
+    <button id="all">Show all 81 on the glasses</button>
+    <button id="clear">Clear</button>
+  </div>
+  <p class="hint">
+    Rows: red 0→8 (top to bottom). Columns: green 0→8 (left to right). The glasses show the same layout inside a light frame.
+    Black (top-left) is transparent on the glasses, so that corner looks empty. Mixed red and green appears yellow to orange.
+    Tap a swatch to show it large. Browser colors are approximations: on the glasses neighbouring shades look much
+    more alike than on a monitor, so pick colours a few steps apart when they need to be told apart.
+  </p>
+  <div class="grid" id="grid"></div>
+  <div id="log">Ready.</div>
+  <script type="module" src="./colors.ts"></script>
+</body>
+</html>

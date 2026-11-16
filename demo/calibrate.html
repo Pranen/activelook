@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calibrate – visible area</title>
+</head>
+<body>
+  <a class="back" href="./index.html">← All demos</a>
+  <h1>Calibrate – visible area</h1>
+  <button id="connect" class="primary">Connect glasses</button>
+
+  <h2>1. Ruler</h2>
+  <p class="hint">Lines every 50 px, labelled with their coordinate. Note the last number you can read on each side.</p>
+  <div class="row"><button id="ruler">Show ruler</button></div>
+
+  <h2>2. Edges</h2>
+  <p class="hint">Move each slider until its line sits just inside the visible edge. The frame is redrawn live.</p>
+  <div class="sliders">
+    <label>Left <input id="left" type="range" min="0" max="120"><output id="leftVal"></output></label>
+    <label>Right <input id="right" type="range" min="150" max="303"><output id="rightVal"></output></label>
+    <label>Top <input id="top" type="range" min="0" max="120"><output id="topVal"></output></label>
+    <label>Bottom <input id="bottom" type="range" min="120" max="255"><output id="bottomVal"></output></label>
+  </div>
+  <div class="row">
+    <button id="frame">Show frame</button>
+    <button id="textcheck">Text position check</button>
+  </div>
+  <p class="hint">Text position check: draws a box and text at the same point. The text should sit in the top-left corner of the box.</p>
+  <pre id="result"></pre>
+
+  <div id="log">Ready.</div>
+  <script type="module" src="./calibrate.ts"></script>
+</body>
+</html>
