@@ -12,7 +12,7 @@ export {
   type VersionInfo,
 } from './activelook.js';
 export { ActiveLookError, type ActiveLookErrorCode } from './errors.js';
-export { ENGO3, defineProfile, detectColor, type DeviceProfile, type Rect } from './devices/profiles.js';
+export { ENGO3, defineProfile, detectColor, visibleArea, type DeviceProfile, type Rect, type Shift } from './devices/profiles.js';
 
 export { CMD, CONTROL, LED, HOLD, DEVICE_ERRORS, type CommandName, type LedState } from './protocol/commands.js';
 export { encodeFrame, FrameDecoder, MAX_DATA_SIZE, MAX_FRAME_SIZE, type Frame } from './protocol/frame.js';

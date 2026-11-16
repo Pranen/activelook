@@ -66,12 +66,19 @@ of the 304×256 panel is visible:
 | | ENGO 3 |
 |---|---|
 | Resolution | 304 × 256 |
-| Visible area (`gl.safeArea`) | about x 3–270, y 30–255 |
-| Fonts (built in) | ids 0–3, line heights 24 / 24 / 35 / 49 px, printable ASCII only |
+| Visible area (`gl.safeArea`) | about x 0–267, y 0–249 at picture shift (0, 0); x 3–270, y 30–255 at (3, 30) |
+| Fonts (firmware 4.13) | ids 0–7, line heights 24 / 24 / 38 / 64 / 75 / 82 / 32 / 48 px, printable ASCII only. The API docs list other heights; the library reads the real ones on connect (`gl.fonts`). |
 | Colours | 81 red-green colours (no blue/white), or 16 grey levels; neighbouring shades are hard to tell apart on the glasses |
 
 Lay out screens relative to `gl.safeArea` instead of fixed numbers. The visible area depends on
-how the glasses sit; measure your own with the **calibrate** demo and pass the result as a profile.
+the **picture shift stored on the glasses** (`gl.settings.shiftX/shiftY`, set for example by the
+ENGO app's display position; the app shows device shift (3, 30) as x −3, y 30, i.e. it negates x).
+The ENGO 3 profile stores the area measured at shift (0, 0) (`safeArea` with `safeAreaShift`).
+On connect the library reads the actual shift and moves `gl.safeArea` accordingly, clipped to
+the panel, so layouts based on it stay inside the visible part. Measurements at shifts (0, 0)
+and (3, 30) confirmed this. To calibrate
+other glasses, use the **calibrate** demo: it shows and sets the shift, measures the area and
+prints a `defineProfile(...)` snippet.
 
 `text()` positions the **top-left corner** of the text and converts umlauts and accents to ASCII
 (`ä` → `ae`); pass `{ transliterate: false }` to send raw bytes.
@@ -91,7 +98,9 @@ Other glasses or a different calibration: `defineProfile(ENGO3, { safeArea: { ..
 **Drawing:** `grey(0–15)`, `color(rgValue)`, `point`, `line`, `rect`, `fillRect`, `circle`, `fillCircle`,
 `arc(x, y, r, startDeg, endDeg, thickness)`, `polyline(points, thickness)`, `text(str, x, y, opts)`
 
-**Queries:** `getVersion()`, `getSettings()`, `getBattery()`, `listFonts()`
+**Queries:** `getVersion()`, `getSettings()`, `getBattery()`, `listFonts()`. Fonts and settings
+are read once on connect (`gl.fonts`, `gl.settings`, `gl.fontHeight(id)`); turn this off with
+`readDeviceState: false`.
 
 **Raw protocol:** `send(cmdId, bytes)`, `query(cmdId, bytes)`, plus `CMD`, `encodeFrame`, `FrameDecoder`,
 `ByteReader` and the byte helpers `u8/u16/s16/u32/cstring` for commands without a wrapper yet.
@@ -169,10 +178,13 @@ Not covered yet:
 
 Use `send()`/`query()` for these in the meantime.
 
+Verified on an ENGO 3 (firmware 4.13.15): drawing, text, colours, input events, battery, and
+query responses over TX (version, settings, battery, fonts).
+
 Not yet verified on hardware:
 
 - the arc angle mapping
-- query responses and the TX / Control characteristics
+- flow control on the Control characteristic
 - the `A.Look` name filter
 
 ## Development

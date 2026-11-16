@@ -1,25 +1,60 @@
 import { $, setupDemo } from './shared';
 
-const { gl, log, guard } = setupDemo({ controls: ['ruler', 'frame', 'textcheck', 'left', 'right', 'top', 'bottom'] });
-
 type Edge = 'left' | 'right' | 'top' | 'bottom';
 const edges: Edge[] = ['left', 'right', 'top', 'bottom'];
-const sa = gl.safeArea;
-const initial: Record<Edge, number> = {
-  left: sa.x,
-  right: sa.x + sa.width - 1,
-  top: sa.y,
-  bottom: sa.y + sa.height - 1,
-};
-const val = (e: Edge) => parseInt($<HTMLInputElement>(e).value, 10);
+const val = (id: string) => parseInt($<HTMLInputElement>(id).value, 10);
+
+let originalShift: { x: number; y: number } | null = null;
+
+const { gl, log, guard } = setupDemo({
+  controls: ['ruler', 'frame', 'textcheck', 'left', 'right', 'top', 'bottom', 'shiftSet', 'shiftZero', 'shiftRestore', 'shiftX', 'shiftY'],
+  onConnect: ({ gl }) => {
+    const s = gl.settings;
+    if (s) {
+      originalShift ??= { x: s.shiftX, y: s.shiftY };
+      log(`Stored picture shift: (${s.shiftX}, ${s.shiftY})`);
+    } else {
+      log('Could not read the picture shift.');
+    }
+    syncFromLibrary();
+  },
+});
+
+/** Shift fields and edge sliders show what the library currently assumes. */
+function syncFromLibrary() {
+  const s = gl.settings;
+  if (s) {
+    $<HTMLInputElement>('shiftX').value = String(s.shiftX);
+    $<HTMLInputElement>('shiftY').value = String(s.shiftY);
+  }
+  $('shiftInfo').textContent = s
+    ? `Current shift (${s.shiftX}, ${s.shiftY}), shown in the ENGO app as x ${-s.shiftX}, y ${s.shiftY}` +
+      `${originalShift ? `; originally (${originalShift.x}, ${originalShift.y})` : ''}.`
+    : 'Connect to read the shift.';
+  const sa = gl.safeArea;
+  const initial: Record<Edge, number> = {
+    left: sa.x,
+    right: sa.x + sa.width - 1,
+    top: sa.y,
+    bottom: sa.y + sa.height - 1,
+  };
+  for (const e of edges) $<HTMLInputElement>(e).value = String(initial[e]);
+  showResult();
+}
 
 function showResult() {
   const x = val('left'), y = val('top');
   const width = val('right') - x + 1, height = val('bottom') - y + 1;
   for (const e of edges) $(`${e}Val`).textContent = String(val(e));
+  const sa = gl.safeArea;
+  const s = gl.settings;
   $('result').textContent =
-    `Visible area: x ${x}–${val('right')}, y ${y}–${val('bottom')}\n\n` +
-    `const profile = defineProfile(ENGO3, {\n  safeArea: { x: ${x}, y: ${y}, width: ${width}, height: ${height} },\n});`;
+    `Measured:  x ${x}–${val('right')}, y ${y}–${val('bottom')}\n` +
+    `Predicted: x ${sa.x}–${sa.x + sa.width - 1}, y ${sa.y}–${sa.y + sa.height - 1} (from the profile and the shift)\n\n` +
+    `const profile = defineProfile(ENGO3, {\n` +
+    `  safeArea: { x: ${x}, y: ${y}, width: ${width}, height: ${height} },\n` +
+    (s ? `  safeAreaShift: { x: ${s.shiftX}, y: ${s.shiftY} },\n` : '') +
+    `});`;
 }
 
 // Redraw at most one frame at a time; slider moves in between collapse into one more redraw.
@@ -61,7 +96,7 @@ function render() {
     // Box and text share the same top-left corner for each font.
     let y = t + 4;
     for (const font of [0, 1, 2, 3]) {
-      const h = gl.profile.fontHeights[font] ?? 24;
+      const h = gl.fontHeight(font);
       if (y + h > b) break;
       void gl.rect(l + 4, y, l + 4 + 120, y + h);
       void gl.text(`F${font} Ag`, l + 4, y, { font });
@@ -71,12 +106,25 @@ function render() {
 }
 
 for (const e of edges) {
-  const input = $<HTMLInputElement>(e);
-  input.value = String(initial[e]);
-  input.oninput = () => { showResult(); view = 'frame'; void redraw(); };
+  $<HTMLInputElement>(e).oninput = () => { showResult(); view = 'frame'; void redraw(); };
 }
-showResult();
+syncFromLibrary();
 
+const applyShift = guard(async (x: number, y: number) => {
+  await gl.shift(x, y);
+  const read = await gl.getSettings(); // read back what the glasses stored
+  log(`Picture shift set to (${read.shiftX}, ${read.shiftY}).`);
+  syncFromLibrary();
+  view = 'ruler';
+  await redraw();
+});
+
+$('shiftSet').onclick = () => void applyShift(val('shiftX'), val('shiftY'));
+$('shiftZero').onclick = () => void applyShift(0, 0);
+$('shiftRestore').onclick = () => {
+  if (!originalShift) { log('Original shift unknown.'); return; }
+  void applyShift(originalShift.x, originalShift.y);
+};
 $('ruler').onclick = guard(() => { view = 'ruler'; return redraw(); });
 $('frame').onclick = guard(() => { view = 'frame'; return redraw(); });
 $('textcheck').onclick = guard(() => { view = 'text'; return redraw(); });

@@ -1,4 +1,4 @@
-import { ENGO3, detectColor, type DeviceProfile, type Rect } from './devices/profiles.js';
+import { ENGO3, detectColor, visibleArea, type DeviceProfile, type Rect } from './devices/profiles.js';
 import { ActiveLookError } from './errors.js';
 import { Emitter } from './events.js';
 import { toAscii } from './extras/ascii.js';
@@ -60,6 +60,8 @@ export interface ActiveLookOptions {
   transliterate?: boolean;
   /** Keep the phone screen on while connected (Screen Wake Lock). Default false. */
   keepAwake?: boolean;
+  /** Read fonts and settings from the device on connect. Default true. */
+  readDeviceState?: boolean;
 }
 
 export interface TextOptions {
@@ -88,6 +90,10 @@ export interface VersionInfo {
 }
 
 export interface Settings {
+  /**
+   * Stored picture shift in device units, as passed to shift(). Moves the visible area.
+   * The ENGO app shows the same shift as x = −shiftX, y = shiftY (right and up positive, as seen).
+   */
   shiftX: number;
   shiftY: number;
   luma: number;
@@ -135,6 +141,9 @@ export class ActiveLook {
   private _battery: number | null = null;
   private _info: DeviceInfo | null = null;
   private _isColor: boolean;
+  private readonly readDeviceState: boolean;
+  private readonly fontHeights = new Map<number, number>();
+  private _settings: Settings | null = null;
 
   constructor(options: ActiveLookOptions = {}) {
     this.profile = options.profile ?? ENGO3;
@@ -144,6 +153,7 @@ export class ActiveLook {
     this.transliterate = options.transliterate ?? true;
     this.queryTimeoutMs = options.queryTimeoutMs ?? 3000;
     this.keepAwake = options.keepAwake ?? false;
+    this.readDeviceState = options.readDeviceState ?? true;
     this._isColor = detectColor(this.profile, undefined);
     this.queue = new WriteQueue(
       chunk => this.transport.write(chunk),
@@ -160,9 +170,24 @@ export class ActiveLook {
   get battery(): number | null { return this._battery; }
   get deviceInfo(): DeviceInfo | null { return this._info; }
   get isColor(): boolean { return this._isColor; }
+  /** Fonts on the device (read on connect), or an empty list if unknown. */
+  get fonts(): FontInfo[] { return [...this.fontHeights].map(([id, height]) => ({ id, height })); }
+  /** Last settings read from the device (on connect and by getSettings()). */
+  get settings(): Settings | null { return this._settings; }
+  /** Line height of a font: from the device if known, else from the profile. */
+  fontHeight(font: number): number {
+    return this.fontHeights.get(font) ?? this.profile.fontHeights[font] ?? this.profile.fontHeights[0] ?? 24;
+  }
   get width(): number { return this.profile.width; }
   get height(): number { return this.profile.height; }
-  get safeArea(): Rect { return this.profile.safeArea; }
+  /**
+   * Visible part of the display in logical coordinates. Follows the picture shift stored on
+   * the device (read on connect, updated by shift()).
+   */
+  get safeArea(): Rect {
+    const s = this._settings;
+    return visibleArea(this.profile, s ? { x: s.shiftX, y: s.shiftY } : null);
+  }
 
   on<K extends keyof ActiveLookEvents>(type: K, fn: (payload: ActiveLookEvents[K]) => void): () => void {
     return this.emitter.on(type, fn);
@@ -191,6 +216,11 @@ export class ActiveLook {
     this._info = info;
     this._isColor = detectColor(this.profile, info.hardware);
     try { this._battery = await this.transport.readBattery(); } catch { /* keep null */ }
+    if (this.readDeviceState) {
+      // Real font heights (they differ from the API docs on ENGO 3) and the stored picture shift.
+      try { await this.listFonts(); } catch (e) { this.log(`Could not read fonts (${(e as Error).message}), using profile values`); }
+      try { await this.getSettings(); } catch (e) { this.log(`Could not read settings (${(e as Error).message})`); }
+    }
     if (this.keepAwake) this.releaseWakeLock = keepScreenAwake();
     this.log(`Connected to ${info.name ?? 'glasses'}${info.firmware ? ` (firmware ${info.firmware})` : ''}`);
     this.emitter.emit('connect', info);
@@ -243,9 +273,14 @@ export class ActiveLook {
   /** Display brightness 0–15 (persisted on the device). */
   luma(level: number): Promise<void> { return this.send(CMD.luma, u8(clamp(level, 0, 15))); }
   led(state: LedState): Promise<void> { return this.send(CMD.led, u8(state)); }
-  /** Shifts the whole picture (persisted). Logical direction; range about ±128 px. */
+  /**
+   * Shifts the whole picture (persisted on the device, also set by the ENGO app's display
+   * position). Device units, the same values getSettings() reports; range about ±128 px.
+   */
   shift(x: number, y: number): Promise<void> {
-    return this.send(CMD.shift, [...s16(this.profile.flipX ? -x : x), ...s16(this.profile.flipY ? -y : y)]);
+    const sent = this.send(CMD.shift, [...s16(x), ...s16(y)]);
+    if (this._settings) this._settings = { ...this._settings, shiftX: Math.round(x), shiftY: Math.round(y) };
+    return sent;
   }
   /** Gesture sensor on/off (persisted). */
   gestureDetection(enabled: boolean): Promise<void> { return this.send(CMD.gesture, bool(enabled)); }
@@ -340,7 +375,7 @@ export class ActiveLook {
   text(str: string, x: number, y: number, options: TextOptions = {}): Promise<void> {
     const font = options.font ?? 1;
     const rotation = options.rotation ?? this.profile.textRotation;
-    const fontHeight = this.profile.fontHeights[font] ?? this.profile.fontHeights[0] ?? 24;
+    const fontHeight = this.fontHeight(font);
     // The device anchors text at the opposite corner when y is mirrored.
     const anchorY = this.profile.flipY ? y + fontHeight : y;
     const s = (options.transliterate ?? this.transliterate) ? toAscii(str) : str;
@@ -354,7 +389,7 @@ export class ActiveLook {
 
   /** Approximate text width in px (built-in fonts are not monospaced). */
   measureText(str: string, font = 1): number {
-    const h = this.profile.fontHeights[font] ?? 24;
+    const h = this.fontHeight(font);
     return Math.round(str.length * h * 0.5);
   }
 
@@ -379,13 +414,17 @@ export class ActiveLook {
 
   async getSettings(): Promise<Settings> {
     const r = new ByteReader(await this.query(CMD.settings));
-    return { shiftX: r.s8(), shiftY: r.s8(), luma: r.u8(), ambientLight: r.bool(), gesture: r.bool() };
+    this._settings = { shiftX: r.s8(), shiftY: r.s8(), luma: r.u8(), ambientLight: r.bool(), gesture: r.bool() };
+    return this._settings;
   }
 
+  /** Fonts installed on the device. Also updates the heights used to position text. */
   async listFonts(): Promise<FontInfo[]> {
     const r = new ByteReader(await this.query(CMD.fontList));
     const fonts: FontInfo[] = [];
     while (r.remaining >= 2) fonts.push({ id: r.u8(), height: r.u8() });
+    this.fontHeights.clear();
+    for (const f of fonts) this.fontHeights.set(f.id, f.height);
     return fonts;
   }
 

@@ -10,6 +10,20 @@
   <h1>Calibrate – visible area</h1>
   <button id="connect" class="primary">Connect glasses</button>
 
+  <h2>0. Picture shift</h2>
+  <p class="hint">
+    The glasses store a picture shift (also set by the ENGO app's display position). It moves the visible area.
+    To measure the area for shift (0, 0): set it to zero, measure with ruler and edges, then restore the original.
+  </p>
+  <p class="hint" id="shiftInfo">Connect to read the shift.</p>
+  <div class="row">
+    <label>X <input id="shiftX" type="number" value="0"></label>
+    <label>Y <input id="shiftY" type="number" value="0"></label>
+    <button id="shiftSet">Set shift</button>
+    <button id="shiftZero">Set to (0, 0)</button>
+    <button id="shiftRestore">Restore original</button>
+  </div>
+
   <h2>1. Ruler</h2>
   <p class="hint">Lines every 50 px, labelled with their coordinate. Note the last number you can read on each side.</p>
   <div class="row"><button id="ruler">Show ruler</button></div>
