@@ -211,7 +211,8 @@ async function showById(step: number): Promise<void> {
   const listed = images.find(i => i.id === id);
   gl.images.remember(id, width, height); // skips the list lookup that only knows 105 images
   await drawImage({ id, width, height }, `#${id}  ${width}x${height}  ${listed ? '(listed)' : '(not listed)'}`);
-  log(`Image ${id} shown as ${width}×${height}${listed ? `, listed as ${listed.width}×${listed.height}` : ''}.`);
+  // imgDisplay has no answer: a device error for a broken or empty id shows up in the log afterwards.
+  log(`Image ${id} sent (placed as ${width}×${height}${listed ? `, listed as ${listed.width}×${listed.height}` : ''}).`);
 }
 $('bShow').onclick = guard(() => showById(0));
 $('bIdDown').onclick = guard(() => showById(-1));

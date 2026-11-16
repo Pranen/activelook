@@ -102,13 +102,14 @@
     <button id="bLayouts">Pages and layouts as text</button>
   </div>
   <p class="hint">
-    The glasses list at most 105 images. Others can still be shown by id: enter id and size and
-    press Show. A wrong size only shifts the image; if nothing appears, the id is probably empty.
+    The glasses list at most 105 images. Others can still be shown by id: enter the id and the size
+    the image is <em>stored</em> with and press Show. The glasses cannot scale images – the size is only
+    used to place the image on the mirrored display, so a wrong size just shifts it.
   </p>
   <div class="row">
     <label>Id <input id="bId" type="number" min="0" max="254" value="0" style="width:5rem"></label>
-    <label>Width <input id="bW" type="number" min="1" max="304" value="26" style="width:5rem"></label>
-    <label>Height <input id="bH" type="number" min="1" max="256" value="26" style="width:5rem"></label>
+    <label>Stored width <input id="bW" type="number" min="1" max="304" value="26" style="width:5rem"></label>
+    <label>Stored height <input id="bH" type="number" min="1" max="256" value="26" style="width:5rem"></label>
     <button id="bIdDown">−1</button>
     <button id="bShow">Show</button>
     <button id="bIdUp">+1</button>
