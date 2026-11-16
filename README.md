@@ -67,7 +67,7 @@ of the 304×256 panel is visible:
 |---|---|
 | Resolution | 304 × 256 |
 | Visible area (`gl.safeArea`) | about x 0–267, y 0–249 at picture shift (0, 0); x 3–270, y 30–255 at (3, 30) |
-| Fonts (firmware 4.13) | ids 0–7, line heights 24 / 24 / 38 / 64 / 75 / 82 / 32 / 48 px, printable ASCII only. The API docs list other heights; the library reads the real ones on connect (`gl.fonts`). |
+| Fonts (firmware 4.13) | ids 0–7, line heights 24 / 24 / 38 / 64 / 75 / 82 / 32 / 48 px, printable ASCII only. The API docs list other heights; the library reads the real ones on connect (`gl.fonts.installed`). |
 | Colours | 81 red-green colours (no blue/white), or 16 grey levels; neighbouring shades are hard to tell apart on the glasses |
 
 Lay out screens relative to `gl.safeArea` instead of fixed numbers. The visible area depends on
@@ -99,10 +99,10 @@ Other glasses or a different calibration: `defineProfile(ENGO3, { safeArea: { ..
 `arc(x, y, r, startDeg, endDeg, thickness)`, `polyline(points, thickness)`, `text(str, x, y, opts)`
 
 **Queries:** `getVersion()`, `getSettings()`, `getBattery()`, `listFonts()`. Fonts and settings
-are read once on connect (`gl.fonts`, `gl.settings`, `gl.fontHeight(id)`); turn this off with
+are read once on connect (`gl.fonts.installed`, `gl.settings`, `gl.fontHeight(id)`); turn this off with
 `readDeviceState: false`.
 
-**Raw protocol:** `send(cmdId, bytes)`, `query(cmdId, bytes)`, plus `CMD`, `encodeFrame`, `FrameDecoder`,
+**Raw protocol:** `send(cmdId, bytes)`, `query(cmdId, bytes)`, `sendMany([[cmdId, bytes], …])` (back to back), plus `CMD`, `encodeFrame`, `FrameDecoder`,
 `ByteReader` and the byte helpers `u8/u16/s16/u32/cstring` for commands without a wrapper yet.
 
 **Colours:** `COLORS` (`red`, `orange`, `amber`, `yellow`, `lime`, `green`, `black`), `RG_PALETTE`
@@ -128,6 +128,74 @@ await gl.gestureDetection(true); // ENGO 3 reports the temple press as a gesture
 pager.start();
 ```
 
+## Storing things on the glasses
+
+Images, layouts, pages, gauges, animations and fonts can be stored on the glasses and shown
+later with one short command. This saves Bluetooth traffic (and battery) for screens that
+are redrawn often. Everything stored lives in a **configuration**: open one with
+`gl.configs.write()` before saving.
+
+```ts
+await gl.configs.write('MYAPP', { version: 1, password: 1234 });
+
+// Image from a canvas (as the wearer should see it; mirroring is handled by the library)
+const bitmap = canvas.getContext('2d')!.getImageData(0, 0, 64, 64);
+await gl.images.save(1, bitmap, { format: 'grey4' }); // or mono1, greyAlpha8, color8, colorAlpha8
+await gl.images.display(1, 20, 40);
+
+// Gauge: ring of 16 portions, filled in percent
+await gl.gauges.save(1, { x: 135, y: 140, radius: 80, innerRadius: 60, start: 10, end: 6 });
+await gl.gauges.display(1, 75);
+
+// Layout: clip region + text slot + drawing commands; display() only sends the new text
+await gl.layouts.save(10, {
+  x: 20, y: 50, width: 200, height: 70, font: 2,
+  text: { x: 10, y: 28 },
+  commands: [
+    { type: 'rect', x0: 0, y0: 0, x1: 199, y1: 69 },
+    { type: 'font', id: 0 },
+    { type: 'text', x: 10, y: 3, text: 'TEMP' },
+  ],
+});
+await gl.layouts.display(10, '21.5 C');
+
+// Page: up to 10 layouts shown together; texts go to the layouts in order
+await gl.pages.save(1, [{ layout: 10, x: 20, y: 40 }, { layout: 10, x: 20, y: 130 }]);
+await gl.pages.display(1, ['21.5 C', '12:30']);
+```
+
+| Module | Methods |
+|---|---|
+| `gl.configs` | `write`, `read`, `select`, `list`, `rename`, `delete`, `deleteLeastUsed`, `freeSpace`, `count` |
+| `gl.images` | `save`, `display`, `stream` (1-bit, not stored, no configuration needed), `list`, `delete`, `deleteAll` |
+| `gl.layouts` | `save`, `display`, `clear`, `clearAndDisplay`, `position`, `displayAt`, `clearAt`, `clearAndDisplayAt`, `list`, `get`, `delete`, `deleteAll` |
+| `gl.pages` | `save`, `get`, `display`, `clear`, `clearAndDisplay`, `list`, `delete`, `deleteAll` |
+| `gl.gauges` | `save`, `display`, `get`, `list`, `delete`, `deleteAll` |
+| `gl.animations` | `display`, `clear`, `clearAll`, `list`, `delete`, `deleteAll` |
+| `gl.fonts` | `installed`, `height`, `list`, `save` (ActiveLook font format), `select`, `delete`, `deleteAll` |
+
+Device commands on `gl`: `fill(level)`, `demo(pattern)`, `pixelCount()`, `readDeviceInfo(id)`,
+`shutdown()`, `reset()`.
+
+All positions are logical (top-left as seen by the wearer). On mirrored displays such as ENGO 3
+the library flips image pixels and needs an object's size to place it, so it remembers the
+sizes of images and layouts saved in the session and otherwise reads them from the glasses.
+Animations need their size passed in (`width`, `height`).
+
+Not supported: creating animations and Heatshrink-compressed images (both need a Heatshrink
+encoder), and generating fonts. Fonts made with the ActiveLook
+[Config-Generator](https://github.com/ActiveLook/Config-Generator) can be uploaded with
+`gl.fonts.save()`.
+
+**Where the API documentation is ambiguous**, the library follows the most plausible reading;
+these points are not yet verified on hardware:
+
+- orientation of stored images and of the 1-bit image stream on mirrored displays
+- pixel format of `color8` / `colorAlpha8` (one RG palette value per pixel, sent uncompressed)
+- which gauge portion sits where (rotated by half a turn on mirrored displays)
+- text in layouts and pages is sent NUL-terminated
+- `nb_points` of polylines inside layouts is the number of points
+
 ## Transport, flow control and errors
 
 The default transport is Web Bluetooth. It subscribes to:
@@ -148,7 +216,7 @@ Flow control works like this:
 new ActiveLook({
   bluetooth: {
     writeMode: 'response', // 'response' (default) | 'auto' | 'noResponse'
-    chunkSize: 512, // split frames into smaller BLE writes if needed
+    chunkSize: 512, // largest single write; shrinks automatically if long writes are rejected
     namePrefixes: ['ENGO', 'A.Look'],
   },
 });
@@ -169,14 +237,11 @@ Covered:
 - input events, battery
 - queries (version, settings, battery, fonts)
 - flow control
+- configurations, images, layouts, pages, gauges, animations (playing), fonts (uploading),
+  device commands; every command of the API documentation has a wrapper
 
-Not covered yet:
-
-- images (`imgSave`/`imgStream`)
-- fonts, layouts, pages, gauges, animations
-- configuration management (`cfgWrite` …)
-
-Use `send()`/`query()` for these in the meantime.
+Not covered: creating animations, Heatshrink-compressed images, generating fonts.
+Use `send()`/`query()`/`sendMany()` for anything else.
 
 Verified on an ENGO 3 (firmware 4.13.15): drawing, text, colours, input events, battery, and
 query responses over TX (version, settings, battery, fonts).
@@ -186,6 +251,7 @@ Not yet verified on hardware:
 - the arc angle mapping
 - flow control on the Control characteristic
 - the `A.Look` name filter
+- everything stored on the glasses (see the list above; try the **storage** demo)
 
 ## Development
 

@@ -38,7 +38,10 @@ export interface WebBluetoothOptions {
   /** Use an already selected device instead of opening the chooser. */
   device?: BluetoothDevice;
   writeMode?: WriteMode;
-  /** Split frames into chunks of this size. Default 512 (no splitting; the BLE stack handles long writes). */
+  /**
+   * Largest single write. Default 512: frames are sent whole and the size shrinks
+   * automatically (244 → 182 → 128 → 64 → 20) if the connection rejects long writes.
+   */
   chunkSize?: number;
   /** Read the Device Information service (needs it in optionalServices). Default true. */
   deviceInfo?: boolean;
@@ -53,8 +56,12 @@ export class WebBluetoothTransport implements Transport {
   private rx: Char | null = null;
   private battery: Char | null = null;
   private onGattDisconnect: (() => void) | null = null;
+  private chunkSize: number;
+  private log: (message: string) => void = () => {};
 
-  constructor(private readonly options: WebBluetoothOptions = {}) {}
+  constructor(private readonly options: WebBluetoothOptions = {}) {
+    this.chunkSize = options.chunkSize ?? 512;
+  }
 
   static get available(): boolean {
     return typeof navigator !== 'undefined' && !!navigator.bluetooth;
@@ -64,12 +71,14 @@ export class WebBluetoothTransport implements Transport {
     return !!this.device?.gatt?.connected && !!this.rx;
   }
 
+  /** Current largest write; shrinks automatically when the connection rejects long writes. */
   get maxChunkSize(): number {
-    return this.options.chunkSize ?? 512;
+    return this.chunkSize;
   }
 
   async connect(events: TransportEvents): Promise<DeviceInfo> {
     const log = (m: string) => events.onLog?.(m);
+    this.log = log;
     if (!WebBluetoothTransport.available) {
       throw new ActiveLookError(
         'Web Bluetooth is not available. It needs a secure context (https or localhost) and a supporting browser (Chrome/Edge; on iOS: Bluefy).',
@@ -156,7 +165,27 @@ export class WebBluetoothTransport implements Transport {
     return info;
   }
 
+  /**
+   * Writes a frame (or part of one). The glasses reassemble frames split over several
+   * writes, so if a write is too long for the connection ("Not supported": no long-write
+   * support), it is retried in smaller pieces and the working size is kept for later writes.
+   */
   async write(data: Uint8Array): Promise<void> {
+    for (let off = 0; off < data.length;) {
+      const piece = data.subarray(off, off + this.chunkSize);
+      try {
+        await this.writeOnce(piece);
+        off += piece.length;
+      } catch (e) {
+        const smaller = CHUNK_STEPS.find(s => s < piece.length);
+        if (smaller === undefined || !isTooLong(e)) throw e;
+        this.chunkSize = smaller;
+        this.log(`Write of ${piece.length} bytes not supported, using ${smaller}-byte pieces`);
+      }
+    }
+  }
+
+  private async writeOnce(data: Uint8Array): Promise<void> {
     const chunk = new Uint8Array(data); // copy: subarray views must not be sent with their full buffer
     const rx = this.rx;
     if (!rx) throw new ActiveLookError('Not connected', 'not-connected');
@@ -176,6 +205,16 @@ export class WebBluetoothTransport implements Transport {
   disconnect(): void {
     if (this.device?.gatt?.connected) this.device.gatt.disconnect();
   }
+}
+
+/** Write sizes to fall back to: common MTU payloads (247/185 − 3), then the BLE minimum (23 − 3). */
+const CHUNK_STEPS = [244, 182, 128, 64, 20];
+
+/** Errors browsers report when a value exceeds what a single (or long) write allows. */
+function isTooLong(e: unknown): boolean {
+  if (!(e instanceof Error) && !(typeof e === 'object' && e && 'name' in e)) return false;
+  const { name = '', message = '' } = e as { name?: string; message?: string };
+  return name === 'NotSupportedError' || name === 'InvalidModificationError' || /not supported|too long|length/i.test(message);
 }
 
 function errorText(e: unknown): string {

@@ -157,7 +157,7 @@ describe('device state on connect', () => {
   it('reads fonts and settings', async () => {
     const { gl } = await connected();
     expect(gl.fontHeight(3)).toBe(64);
-    expect(gl.fonts).toHaveLength(8);
+    expect(gl.fonts.installed).toHaveLength(8);
     expect(gl.settings).toEqual({ shiftX: 3, shiftY: 30, luma: 10, ambientLight: false, gesture: true });
   });
 
@@ -168,7 +168,7 @@ describe('device state on connect', () => {
     const p = gl.connect();
     await vi.advanceTimersByTimeAsync(200);
     await p;
-    expect(gl.fonts).toEqual([]);
+    expect(gl.fonts.installed).toEqual([]);
     expect(gl.fontHeight(2)).toBe(ENGO3.fontHeights[2]);
     expect(gl.settings).toBeNull();
   });

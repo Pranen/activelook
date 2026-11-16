@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Storage – images, layouts, gauges</title>
+</head>
+<body>
+  <a class="back" href="./index.html">← All demos</a>
+  <h1>Storage – images, layouts, gauges, pages</h1>
+  <button id="connect" class="primary">Connect glasses</button>
+  <p class="hint">
+    Everything stored on the glasses lives in a configuration. Open the demo configuration first;
+    it is separate from the ENGO app's configuration and can be deleted again at the end.
+    The ENGO app may select its own configuration again when it connects.
+  </p>
+
+  <h2>1. Configuration</h2>
+  <div class="row">
+    <label>Name <input id="cfgName" value="DEMO" maxlength="11" style="width:8rem"></label>
+    <label>Password <input id="cfgPass" type="number" value="1234"></label>
+  </div>
+  <div class="row">
+    <button id="cfgOpen">Open for writing</button>
+    <button id="cfgList">List configurations</button>
+    <button id="cfgFree">Free space</button>
+    <button id="cfgDelete">Delete this configuration</button>
+  </div>
+
+  <h2>2. Image</h2>
+  <p class="hint">The test image shows an arrow into its top-left corner: on the glasses it must look exactly like the preview.</p>
+  <div class="row">
+    <canvas id="img" width="64" height="64" style="background:#000;image-rendering:pixelated;width:128px;height:128px"></canvas>
+    <label>Format
+      <select id="imgFormat">
+        <option value="grey4">grey4 (16 grey levels)</option>
+        <option value="mono1">mono1 (on/off)</option>
+        <option value="greyAlpha8">greyAlpha8</option>
+        <option value="color8">color8 (RG colour)</option>
+        <option value="colorAlpha8">colorAlpha8</option>
+      </select>
+    </label>
+  </div>
+  <div class="row">
+    <button id="imgSave">Save as image 1</button>
+    <button id="imgShow">Display image 1</button>
+    <button id="imgStream">Stream (not stored, 1 bit)</button>
+  </div>
+
+  <h2>3. Gauge</h2>
+  <div class="row">
+    <label>Start portion <input id="gStart" type="number" min="0" max="15" value="10"></label>
+    <label>End portion <input id="gEnd" type="number" min="0" max="15" value="6"></label>
+    <button id="gSave">Save gauge 1</button>
+  </div>
+  <div class="row">
+    <label>Value <input id="gValue" type="range" min="0" max="100" value="40"></label>
+    <span id="gValueText">40%</span>
+  </div>
+
+  <h2>4. Layout and page</h2>
+  <p class="hint">Layout 10 is a framed box with a label and a text slot. Page 1 shows it twice with different texts.</p>
+  <div class="row">
+    <button id="lSave">Save layout 10</button>
+    <label>Text <input id="lText" value="21.5 C" style="width:8rem"></label>
+    <button id="lShow">Display layout 10</button>
+  </div>
+  <div class="row">
+    <button id="pSave">Save page 1</button>
+    <button id="pShow">Display page 1</button>
+  </div>
+
+  <h2>5. What is stored</h2>
+  <div class="row">
+    <button id="list">List images, layouts, gauges, pages</button>
+    <button id="clear">Clear display</button>
+  </div>
+
+  <div id="log">Ready.</div>
+  <script type="module" src="./storage.ts"></script>
+</body>
+</html>

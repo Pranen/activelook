@@ -8,6 +8,13 @@ import { CMD, CONTROL, CONTROL_MESSAGES, DEVICE_ERRORS, HOLD, type LedState } fr
 import { FrameDecoder, MAX_DATA_SIZE, encodeFrame, type Frame } from './protocol/frame.js';
 import { rgToGrey } from './protocol/palette.js';
 import { WriteQueue } from './queue.js';
+import { Animations } from './modules/animations.js';
+import { Configs } from './modules/configs.js';
+import { Fonts, type FontInfo } from './modules/fonts.js';
+import { Gauges } from './modules/gauges.js';
+import { Images } from './modules/images.js';
+import { Layouts } from './modules/layouts.js';
+import { Pages } from './modules/pages.js';
 import type { DeviceInfo, Transport } from './transport/types.js';
 import { WebBluetoothTransport, type WebBluetoothOptions } from './transport/web-bluetooth.js';
 
@@ -101,10 +108,26 @@ export interface Settings {
   gesture: boolean;
 }
 
-export interface FontInfo {
-  id: number;
-  height: number;
-}
+export type { FontInfo };
+
+/** Parameter ids of rdDevInfo (0xE3). */
+export const DEVICE_INFO = {
+  hardwarePlatform: 0,
+  manufacturer: 1,
+  advertisingManufacturerId: 2,
+  model: 3,
+  subModel: 4,
+  firmwareVersion: 5,
+  serialNumber: 6,
+  batteryModel: 7,
+  lensModel: 8,
+  displayModel: 9,
+  displayOrientation: 10,
+  certification1: 11,
+} as const;
+
+const SHUTDOWN_KEY = [0x6f, 0x7f, 0xc4, 0xee];
+const RESET_KEY = [0x5c, 0x1e, 0x2d, 0xe9];
 
 interface PendingQuery {
   cmd: number;
@@ -128,6 +151,21 @@ export class ActiveLook {
   verbose: boolean;
   transliterate: boolean;
 
+  /** Configurations: open one with `configs.write()` before saving anything below. */
+  readonly configs = new Configs(this);
+  /** Stored and streamed images. */
+  readonly images = new Images(this);
+  /** Stored layouts (clip region + text slot + drawing commands). */
+  readonly layouts = new Layouts(this);
+  /** Pages: up to 10 layouts shown together. */
+  readonly pages = new Pages(this);
+  /** Ring gauges. */
+  readonly gauges = new Gauges(this);
+  /** Stored animations. */
+  readonly animations = new Animations(this);
+  /** Fonts on the glasses. */
+  readonly fonts = new Fonts(this);
+
   private readonly emitter = new Emitter<ActiveLookEvents>();
   private readonly queue: WriteQueue;
   private readonly decoder = new FrameDecoder();
@@ -142,7 +180,6 @@ export class ActiveLook {
   private _info: DeviceInfo | null = null;
   private _isColor: boolean;
   private readonly readDeviceState: boolean;
-  private readonly fontHeights = new Map<number, number>();
   private _settings: Settings | null = null;
 
   constructor(options: ActiveLookOptions = {}) {
@@ -170,14 +207,10 @@ export class ActiveLook {
   get battery(): number | null { return this._battery; }
   get deviceInfo(): DeviceInfo | null { return this._info; }
   get isColor(): boolean { return this._isColor; }
-  /** Fonts on the device (read on connect), or an empty list if unknown. */
-  get fonts(): FontInfo[] { return [...this.fontHeights].map(([id, height]) => ({ id, height })); }
   /** Last settings read from the device (on connect and by getSettings()). */
   get settings(): Settings | null { return this._settings; }
   /** Line height of a font: from the device if known, else from the profile. */
-  fontHeight(font: number): number {
-    return this.fontHeights.get(font) ?? this.profile.fontHeights[font] ?? this.profile.fontHeights[0] ?? 24;
-  }
+  fontHeight(font: number): number { return this.fonts.height(font); }
   get width(): number { return this.profile.width; }
   get height(): number { return this.profile.height; }
   /**
@@ -256,6 +289,15 @@ export class ActiveLook {
     });
   }
 
+  /**
+   * Queues several commands back to back, so no other command can come in between
+   * (needed for multi-frame uploads). Resolves when all have been written.
+   */
+  async sendMany(commands: ReadonlyArray<readonly [cmd: number, data: ArrayLike<number>]>): Promise<void> {
+    const frames = commands.map(([cmd, data]) => encodeFrame(cmd, data)); // encode first: fail before sending anything
+    await Promise.all(frames.map(f => this.write(f)));
+  }
+
   /** Resolves once all queued commands have been written. */
   idle(): Promise<void> { return this.queue.idle(); }
 
@@ -263,6 +305,15 @@ export class ActiveLook {
   toDevice(x: number, y: number): [number, number] {
     const { width, height, flipX, flipY } = this.profile;
     return [flipX ? width - 1 - x : x, flipY ? height - 1 - y : y];
+  }
+
+  /**
+   * Device top-left corner of a w×h box whose logical top-left corner is (x, y)
+   * (images, layouts, animations). Applying it to device values gives logical values back.
+   */
+  boxToDevice(x: number, y: number, w: number, h: number): [number, number] {
+    const { width, height, flipX, flipY } = this.profile;
+    return [flipX ? width - x - w : x, flipY ? height - y - h : y];
   }
 
   // ── Display & device ─────────────────────────────────────────────────
@@ -418,15 +469,32 @@ export class ActiveLook {
     return this._settings;
   }
 
-  /** Fonts installed on the device. Also updates the heights used to position text. */
-  async listFonts(): Promise<FontInfo[]> {
-    const r = new ByteReader(await this.query(CMD.fontList));
-    const fonts: FontInfo[] = [];
-    while (r.remaining >= 2) fonts.push({ id: r.u8(), height: r.u8() });
-    this.fontHeights.clear();
-    for (const f of fonts) this.fontHeights.set(f.id, f.height);
-    return fonts;
+  /** Fonts installed on the device (same as `fonts.list()`). */
+  listFonts(): Promise<FontInfo[]> { return this.fonts.list(); }
+
+  /** Raw value of a device parameter (rdDevInfo), see `DEVICE_INFO` for ids. */
+  readDeviceInfo(id: number): Promise<Uint8Array> {
+    return this.query(CMD.rdDevInfo, [id & 0xff]);
   }
+
+  /** Number of pixels currently lit on the display. */
+  async pixelCount(): Promise<number> {
+    return new ByteReader(await this.query(CMD.pixelCount)).u32();
+  }
+
+  // ── Device ────────────────────────────────────────────────────────────
+
+  /** Fills the whole display with a grey level (0x02). */
+  fill(level: number): Promise<void> { return this.send(CMD.grey, u8(clamp(level, 0, 15))); }
+
+  /** Built-in test patterns: 0 fill, 1 rectangle with cross, 2 next stored image. */
+  demo(pattern: 0 | 1 | 2): Promise<void> { return this.send(CMD.demo, u8(pattern)); }
+
+  /** Switches the glasses off. Not possible while charging (USB). */
+  shutdown(): Promise<void> { return this.send(CMD.shutdown, SHUTDOWN_KEY); }
+
+  /** Restarts the glasses. Only possible while charging (USB). */
+  reset(): Promise<void> { return this.send(CMD.reset, RESET_KEY); }
 
   // ── Internals ────────────────────────────────────────────────────────
 

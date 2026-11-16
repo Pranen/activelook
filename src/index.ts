@@ -30,6 +30,26 @@ export {
 export { MockTransport, type MockTransportOptions } from './transport/mock.js';
 export { WriteQueue } from './queue.js';
 
+export { DEVICE_INFO } from './activelook.js';
+export { Configs, MAX_CONFIG_NAME, type ConfigEntry, type ConfigInfo, type ConfigWriteOptions } from './modules/configs.js';
+export { Images, type ImageInfo, type SaveImageOptions } from './modules/images.js';
+export { Layouts, type LayoutCommand, type LayoutDefinition, type LayoutText, type RawLayout } from './modules/layouts.js';
+export { Pages, MAX_PAGE_LAYOUTS, type PageEntry } from './modules/pages.js';
+export { Gauges, GAUGE_PORTIONS, type GaugeDefinition } from './modules/gauges.js';
+export { Animations, type AnimationOptions } from './modules/animations.js';
+export { Fonts } from './modules/fonts.js';
+export {
+  IMAGE_FORMAT,
+  createBitmap,
+  flipBitmap,
+  encodeImage,
+  chunkRows,
+  type Bitmap,
+  type EncodedImage,
+  type EncodeOptions,
+  type ImageFormat,
+} from './images/bitmap.js';
+
 export { ScreenPager, type Screen, type PagerOptions } from './extras/pager.js';
 export { toAscii } from './extras/ascii.js';
 export { keepScreenAwake } from './extras/wake-lock.js';
