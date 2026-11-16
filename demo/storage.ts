@@ -1,8 +1,16 @@
-import type { ImageFormat, StreamFormat } from '@pranen/activelook';
+import type { ImageFormat, ImageInfo, StreamFormat } from '@pranen/activelook';
 import { $, setupDemo } from './shared';
 
-const buttons = ['cfgOpen', 'cfgList', 'cfgFree', 'cfgDelete', 'imgSave', 'imgShow', 'imgStream', 'gSave', 'gValue', 'lSave', 'lShow', 'pSave', 'pShow', 'list', 'clear'];
-const { gl, log, guard } = setupDemo({ controls: buttons });
+const buttons = [
+  'cfgOpen', 'cfgList', 'cfgFree', 'cfgDelete', 'imgSave', 'imgShow', 'imgStream', 'gSave', 'gValue',
+  'lSave', 'lShow', 'pSave', 'pShow', 'list', 'clear',
+  'bCfg', 'bOpen', 'bBack', 'bPrev', 'bNext', 'bFont', 'bLayouts',
+];
+const { gl, log, guard } = setupDemo({
+  controls: buttons,
+  // Not awaited: listing configurations can take a while on a full memory.
+  onConnect: () => { fillConfigs().catch(e => log(`Could not list configurations: ${(e as Error).message}`)); },
+});
 
 const value = (id: string) => $<HTMLInputElement>(id).value;
 const num = (id: string) => parseInt(value(id), 10);
@@ -14,7 +22,9 @@ $('cfgOpen').onclick = guard(async () => {
 });
 $('cfgList').onclick = guard(async () => {
   for (const c of await gl.configs.list()) {
-    log(`  ${c.name}  v${c.version}  size ${c.size}${c.isSystem ? '  (system)' : ''}`);
+    log(`  ${c.name}  v${c.version}  size ${c.size}${c.isSystem ? '  (system)' : ''}  used #${c.usageCount}  installed #${c.installCount}`);
+    const info = await gl.configs.read(c.name);
+    log(`     ${info.images} images, ${info.layouts} layouts, ${info.fonts} fonts, ${info.pages} pages, ${info.gauges} gauges`);
   }
 });
 $('cfgFree').onclick = guard(async () => {
@@ -135,3 +145,89 @@ $('list').onclick = guard(async () => {
   log(`Pages:   ${JSON.stringify(await gl.pages.list())}`);
 });
 $('clear').onclick = guard(async () => { await gl.clear(); log('✓ Cleared.'); });
+
+// ── 6. Browse a configuration ───────────────────────────────────────────
+let systemConfig = 'ALooK';
+let images: ImageInfo[] = [];
+let imageIndex = -1;
+let fontIndex = -1;
+
+async function fillConfigs(): Promise<void> {
+  const select = $<HTMLSelectElement>('bCfg');
+  const configs = await gl.configs.list();
+  systemConfig = configs.find(c => c.isSystem)?.name ?? systemConfig;
+  select.innerHTML = '';
+  for (const c of configs) select.add(new Option(c.isSystem ? `${c.name} (system)` : c.name, c.name));
+  select.value = configs.find(c => !c.isSystem)?.name ?? systemConfig;
+}
+
+/** Smallest font of the selected configuration, for labels. */
+const labelFont = (): number | undefined =>
+  gl.fonts.installed.reduce<{ id: number; height: number } | undefined>((a, f) => (!a || f.height < a.height ? f : a), undefined)?.id;
+
+$('bOpen').onclick = guard(async () => {
+  const name = value('bCfg');
+  const info = await gl.configs.read(name);
+  await gl.configs.select(name); // also reads the fonts of this configuration
+  images = (await gl.images.list()).sort((a, b) => a.id - b.id);
+  imageIndex = -1;
+  fontIndex = -1;
+  log(`"${name}" selected: ${images.length} images listed (configuration reports ${info.images}), ` +
+    `${info.layouts} layouts, ${info.pages} pages, ${info.gauges} gauges.`);
+  log(`  Fonts: ${gl.fonts.installed.map(f => `${f.id} (${f.height} px)`).join(', ') || 'none'}`);
+  if (images.length) log(`  Images: ${images.map(i => `${i.id}:${i.width}×${i.height}`).join('  ')}`);
+  $('bInfo').textContent = `"${name}" active – use the image and font buttons.`;
+});
+
+async function showImage(step: number): Promise<void> {
+  if (!images.length) { log('Select a configuration first.'); return; }
+  imageIndex = (imageIndex + step + images.length) % images.length;
+  const img = images[imageIndex]!;
+  const sa = gl.safeArea;
+  const font = labelFont();
+  const top = font === undefined ? 0 : gl.fontHeight(font) + 6;
+  const x = sa.x + Math.max(0, Math.round((sa.width - img.width) / 2));
+  const y = sa.y + top + Math.max(0, Math.round((sa.height - top - img.height) / 2));
+  const label = `#${img.id}  ${img.width}x${img.height}  (${imageIndex + 1}/${images.length})`;
+  await gl.draw(async g => {
+    if (font !== undefined) await g.text(label, sa.x + 4, sa.y + 2, { font });
+    await g.images.display(img.id, x, y);
+  });
+  $('bInfo').textContent = `Image ${label}`;
+}
+$('bPrev').onclick = guard(() => showImage(-1));
+$('bNext').onclick = guard(() => showImage(1));
+
+$('bFont').onclick = guard(async () => {
+  const fonts = [...gl.fonts.installed].sort((a, b) => a.id - b.id);
+  if (!fonts.length) { log('No fonts known – select a configuration first.'); return; }
+  fontIndex = (fontIndex + 1) % fonts.length;
+  const f = fonts[fontIndex]!;
+  const sa = gl.safeArea;
+  const small = labelFont() ?? f.id;
+  await gl.draw(async g => {
+    await g.text(`Font ${f.id}, ${f.height} px`, sa.x + 4, sa.y + 2, { font: small });
+    await g.text('12:34', sa.x + 4, sa.y + gl.fontHeight(small) + 10, { font: f.id });
+    // Some fonts only contain digits: letters then simply stay empty.
+    if (f.height <= 64) await g.text('Abc xyz', sa.x + 4, sa.y + gl.fontHeight(small) + f.height + 16, { font: f.id });
+  });
+  $('bInfo').textContent = `Font ${f.id} (${f.height} px), ${fontIndex + 1}/${fonts.length}`;
+});
+
+$('bLayouts').onclick = guard(async () => {
+  const pages = (await gl.pages.list()).sort((a, b) => a - b);
+  const layouts = (await gl.layouts.list()).sort((a, b) => a - b);
+  log(`${pages.length} pages, ${layouts.length} layouts.`);
+  for (const id of pages) log(`  page ${id}: ${JSON.stringify(await gl.pages.get(id))}`);
+  const shown = layouts.slice(0, 20);
+  for (const id of shown) log(`  layout ${id}: ${JSON.stringify(await gl.layouts.get(id))}`);
+  if (layouts.length > shown.length) log(`  … ${layouts.length - shown.length} more layouts not shown.`);
+});
+
+$('bBack').onclick = guard(async () => {
+  await gl.configs.select(systemConfig);
+  images = [];
+  await gl.clear();
+  $('bInfo').textContent = '';
+  log(`System configuration "${systemConfig}" selected again.`);
+});

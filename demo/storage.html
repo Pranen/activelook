@@ -84,6 +84,25 @@
     <button id="clear">Clear display</button>
   </div>
 
+  <h2>6. Browse a configuration</h2>
+  <p class="hint">
+    Selects a configuration (e.g. the ENGO app's "Engo") and steps through its images and fonts on
+    the glasses – images cannot be read back, only shown. Selecting does not change a configuration.
+    "Back to system configuration" restores the default; the ENGO app selects its own again when it connects.
+  </p>
+  <div class="row">
+    <label>Configuration <select id="bCfg"></select></label>
+    <button id="bOpen">Select and list</button>
+    <button id="bBack">Back to system configuration</button>
+  </div>
+  <div class="row">
+    <button id="bPrev">◀ Image</button>
+    <button id="bNext">Image ▶</button>
+    <button id="bFont">Next font sample</button>
+    <button id="bLayouts">Pages and layouts as text</button>
+  </div>
+  <p id="bInfo" class="hint"></p>
+
   <div id="log">Ready.</div>
   <script type="module" src="./storage.ts"></script>
 </body>

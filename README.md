@@ -228,6 +228,10 @@ made for 4 digits and a separator). Layouts and animations use the positions Act
 designed them for. To use your own stored objects again, select your configuration with
 `gl.configs.select(name)`.
 
+Images, layouts and fonts belong to a configuration (on an ENGO 3, "ALooK" has 8 fonts, the
+ENGO app's "Engo" has 4). `configs.select()` therefore reads the fonts of the newly selected
+configuration and forgets cached image and layout sizes, so text and images stay in place.
+
 ## Transport, flow control and errors
 
 The default transport is Web Bluetooth. It subscribes to:

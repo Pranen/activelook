@@ -93,6 +93,11 @@ const SUB = { image: 0, circle: 1, fillCircle: 2, color: 3, font: 4, line: 5, po
 export class Layouts extends Module {
   private readonly sizes = new Map<number, { width: number; height: number; font: number }>();
 
+  /** Forgets the cached layout sizes (another configuration was selected). */
+  forgetSizes(): void {
+    this.sizes.clear();
+  }
+
   save(id: number, layout: LayoutDefinition): Promise<void> {
     checkId(id, 'Layout');
     if (layout.color) requireColor(this.gl, 'Colour layout');

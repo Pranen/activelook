@@ -182,7 +182,8 @@ export class ActiveLook {
   private _battery: number | null = null;
   private _info: DeviceInfo | null = null;
   private _isColor: boolean;
-  private readonly readDeviceState: boolean;
+  /** Whether fonts and settings are read from the device (option `readDeviceState`). */
+  readonly readDeviceState: boolean;
   private _settings: Settings | null = null;
 
   constructor(options: ActiveLookOptions = {}) {

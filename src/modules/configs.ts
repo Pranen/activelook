@@ -57,9 +57,18 @@ export class Configs extends Module {
     return { version: r.u32(), images: r.u8(), layouts: r.u8(), fonts: r.u8(), pages: r.u8(), gauges: r.u8() };
   }
 
-  /** Makes a configuration the active one (cfgSet, "cfgSelect" in the docs). */
-  select(configName: string): Promise<void> {
-    return this.gl.send(CMD.cfgSet, name(configName));
+  /**
+   * Makes a configuration the active one (cfgSet, "cfgSelect" in the docs).
+   * Images, layouts and fonts belong to a configuration: cached sizes are dropped and the
+   * fonts of the new configuration are read, so text is positioned with the right heights.
+   */
+  async select(configName: string): Promise<void> {
+    await this.gl.send(CMD.cfgSet, name(configName));
+    this.gl.images.forgetSizes();
+    this.gl.layouts.forgetSizes();
+    if (this.gl.readDeviceState) {
+      try { await this.gl.fonts.list(); } catch { /* keep the previous heights */ }
+    }
   }
 
   async list(): Promise<ConfigEntry[]> {

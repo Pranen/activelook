@@ -68,6 +68,21 @@ describe('configurations', () => {
     expect(await gl.configs.read('AB')).toEqual({ version: 7, images: 1, layouts: 2, fonts: 3, pages: 4, gauges: 5 });
     expect(await gl.configs.freeSpace()).toEqual({ total: 0x300000, free: 0x100000 });
   });
+
+  it('select() reads the fonts of the new configuration and forgets cached sizes', async () => {
+    let fonts = [0, 24, 1, 24];
+    const { gl, mock } = await connect(ENGO3, {
+      respond: f => (f.cmd === CMD.fontList ? fonts : f.cmd === CMD.imgList ? [5, 0, 10, 0, 20] : undefined),
+    });
+    gl.images.remember(5, 99, 99);
+    fonts = [0, 30, 1, 50];
+    await gl.configs.select('Engo');
+    expect(mock.frames[0]!.cmd).toBe(CMD.cfgSet);
+    expect(gl.fontHeight(1)).toBe(50);
+    expect(gl.images.size(5)).toBeUndefined();
+    await gl.images.display(5, 0, 0); // size unknown again → looked up on the glasses
+    expect(mock.frames.some(f => f.cmd === CMD.imgList)).toBe(true);
+  });
 });
 
 describe('image encoding', () => {

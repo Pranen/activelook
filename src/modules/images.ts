@@ -98,7 +98,11 @@ export class Images extends Module {
     return this.gl.send(CMD.imgDelete, [ALL]);
   }
 
-  /** Known size of an image, if it was saved or listed in this session. */
+  /** Forgets the cached image sizes (another configuration was selected). */
+  forgetSizes(): void {
+    this.sizes.clear();
+  }
+
   /** Tells the library the size of an image already on the glasses (saves a list() round trip). */
   remember(id: number, width: number, height: number): void {
     this.sizes.set(checkId(id, 'Image'), { width, height });

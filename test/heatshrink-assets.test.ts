@@ -86,15 +86,15 @@ describe('ALooK assets', () => {
     expect(Object.keys(ALOOK_LAYOUTS)).toHaveLength(175);
   });
 
-  it('selects the configuration and shows assets without extra queries', async () => {
+  it('selects the configuration (reading its fonts) and shows assets without extra queries', async () => {
     const { gl, mock } = await connect();
     await gl.assets.use();
     await gl.assets.showImage('heart-beat_28x28', 10, 20);
     await gl.assets.showLayout('time', '12:30');
     await gl.assets.playAnimation('dancing_dots');
-    expect(mock.frames.map(f => f.cmd)).toEqual([CMD.cfgSet, CMD.imgDisplay, CMD.layoutDisplay, CMD.animDisplay]);
+    expect(mock.frames.map(f => f.cmd)).toEqual([CMD.cfgSet, CMD.fontList, CMD.imgDisplay, CMD.layoutDisplay, CMD.animDisplay]);
     expect(toHex(mock.frames[0]!.data)).toBe('41 4c 6f 6f 4b 00'); // "ALooK\0"
-    expect(toHex(mock.frames[1]!.data)).toBe('0c 01 0a 00 d0'); // id 12 at (304-10-28, 256-20-28) = (266, 208)
-    expect(toHex(mock.frames[3]!.data)).toBe('00 02 00 64 ff 00 62 00 70'); // id 2, 100 ms, loop, at (98, 112)
+    expect(toHex(mock.frames[2]!.data)).toBe('0c 01 0a 00 d0'); // id 12 at (304-10-28, 256-20-28) = (266, 208)
+    expect(toHex(mock.frames[4]!.data)).toBe('00 02 00 64 ff 00 62 00 70'); // id 2, 100 ms, loop, at (98, 112)
   });
 });
