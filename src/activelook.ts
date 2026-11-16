@@ -563,6 +563,8 @@ export class ActiveLook {
       entry = [...this.pending].find(([, p]) => p.cmd === frame.cmd); // device did not echo the query id
     }
     if (entry) this.settle(entry[0], entry[1], frame.data);
+    // Nothing waits for this frame (e.g. a second part of a long list): make it visible.
+    else this.log(`Unexpected frame 0x${hex2(frame.cmd)} (${frame.data.length} bytes${qid !== undefined ? `, query id ${qid}` : ''})`);
   }
 
   private settle(id: number, p: PendingQuery, result: Uint8Array | Error): void {
