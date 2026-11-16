@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Heart rate – ALooK layouts</title>
+</head>
+<body>
+  <a class="back" href="./index.html">← All demos</a>
+  <h1>Heart rate – ALooK layouts</h1>
+  <button id="connect" class="primary">Connect glasses</button>
+  <p class="hint">
+    Uses the layouts built into every ActiveLook device (configuration "ALooK"): icon, frame and
+    value are drawn by the glasses. After the first frame only changed values are sent – one short
+    command per value instead of redrawing the screen.
+  </p>
+
+  <h2>Source</h2>
+  <p class="hint">
+    A Bluetooth heart rate sensor: a chest strap, or a Garmin watch with "Broadcast heart rate" on.
+    Or simulate one.
+  </p>
+  <div class="row">
+    <button id="sensor">Connect heart rate sensor</button>
+    <label><input type="checkbox" id="sim"> Simulate</label>
+    <input id="simBpm" type="range" min="50" max="200" value="120">
+    <span id="simText">120 bpm</span>
+  </div>
+
+  <h2>Screen</h2>
+  <div class="row">
+    <label>Layout <select id="screen"></select></label>
+    <button id="reset">Reset average and maximum</button>
+  </div>
+
+  <div class="big" id="preview">– bpm</div>
+  <p id="stats" class="hint"></p>
+  <div id="log">Ready.</div>
+  <script type="module" src="./hr.ts"></script>
+</body>
+</html>
