@@ -47,6 +47,21 @@ function name(n: string): number[] {
  * creates) the configuration that receives them.
  */
 export class Configs extends Module {
+  private _selected: string | null = null;
+
+  /**
+   * Configuration chosen with `select()` since connecting, or null. The glasses cannot be asked
+   * which configuration is active; right after connecting it is usually the system one ("ALooK").
+   */
+  get selected(): string | null {
+    return this._selected;
+  }
+
+  /** @internal Called on connect: another app may have switched configurations meanwhile. */
+  resetSelection(): void {
+    this._selected = null;
+  }
+
   /** Opens or creates a configuration for writing (cfgWrite). Needs battery above 5 %. */
   write(configName: string, options: ConfigWriteOptions = {}): Promise<void> {
     return this.gl.send(CMD.cfgWrite, [...name(configName), ...u32(options.version ?? 1), ...u32(options.password ?? 0)]);
@@ -64,6 +79,7 @@ export class Configs extends Module {
    */
   async select(configName: string): Promise<void> {
     await this.gl.send(CMD.cfgSet, name(configName));
+    this._selected = configName;
     this.gl.images.forgetSizes();
     this.gl.layouts.forgetSizes();
     if (this.gl.readDeviceState) {
@@ -92,6 +108,7 @@ export class Configs extends Module {
   }
 
   delete(configName: string): Promise<void> {
+    if (this._selected === configName) this._selected = null;
     return this.gl.send(CMD.cfgDelete, name(configName));
   }
 

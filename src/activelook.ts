@@ -258,6 +258,7 @@ export class ActiveLook {
       try { await this.listFonts(); } catch (e) { this.log(`Could not read fonts (${(e as Error).message}), using profile values`); }
       try { await this.getSettings(); } catch (e) { this.log(`Could not read settings (${(e as Error).message})`); }
     }
+    this.configs.resetSelection();
     if (this.keepAwake) this.releaseWakeLock = keepScreenAwake();
     this.log(`Connected to ${info.name ?? 'glasses'}${info.firmware ? ` (firmware ${info.firmware})` : ''}`);
     this.emitter.emit('connect', info);

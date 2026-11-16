@@ -231,6 +231,10 @@ designed them for. To use your own stored objects again, select your configurati
 Images, layouts and fonts belong to a configuration (on an ENGO 3, "ALooK" has 8 fonts, the
 ENGO app's "Engo" has 4). `configs.select()` therefore reads the fonts of the newly selected
 configuration and forgets cached image and layout sizes, so text and images stay in place.
+The glasses cannot be asked which configuration is active; `configs.selected` tells which one
+was selected since connecting (null right after connect, when it is usually the system one).
+The image list (`images.list()`) returns at most 105 entries on an ENGO 3; show other images
+with their stored size via `images.remember(id, width, height)` first.
 
 ## Transport, flow control and errors
 

@@ -9,7 +9,7 @@ const buttons = [
 const { gl, log, guard } = setupDemo({
   controls: buttons,
   // Not awaited: listing configurations can take a while on a full memory.
-  onConnect: () => { fillConfigs().catch(e => log(`Could not list configurations: ${(e as Error).message}`)); },
+  onConnect: () => { images = []; fillConfigs().catch(e => log(`Could not list configurations: ${(e as Error).message}`)); },
 });
 
 const value = (id: string) => $<HTMLInputElement>(id).value;
@@ -209,10 +209,12 @@ async function showById(step: number): Promise<void> {
   if (!(width > 0 && height > 0)) { log('Enter width and height.'); return; }
   $<HTMLInputElement>('bId').value = String(id);
   const listed = images.find(i => i.id === id);
+  const cfg = gl.configs.selected ?? 'ALooK?';
   gl.images.remember(id, width, height); // skips the list lookup that only knows 105 images
-  await drawImage({ id, width, height }, `#${id}  ${width}x${height}  ${listed ? '(listed)' : '(not listed)'}`);
+  await drawImage({ id, width, height }, `${cfg} #${id}  ${width}x${height}  ${listed ? '(listed)' : '(not listed)'}`);
   // imgDisplay has no answer: a device error for a broken or empty id shows up in the log afterwards.
-  log(`Image ${id} sent (placed as ${width}×${height}${listed ? `, listed as ${listed.width}×${listed.height}` : ''}).`);
+  if (!gl.configs.selected) log('No configuration selected since connecting – the glasses usually use the system configuration (ALooK). Use "Select and list" first.');
+  log(`Image ${id} of ${cfg} sent (placed as ${width}×${height}${listed ? `, listed as ${listed.width}×${listed.height}` : ''}).`);
 }
 $('bShow').onclick = guard(() => showById(0));
 $('bIdDown').onclick = guard(() => showById(-1));

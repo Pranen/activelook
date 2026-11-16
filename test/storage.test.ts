@@ -78,6 +78,7 @@ describe('configurations', () => {
     fonts = [0, 30, 1, 50];
     await gl.configs.select('Engo');
     expect(mock.frames[0]!.cmd).toBe(CMD.cfgSet);
+    expect(gl.configs.selected).toBe('Engo');
     expect(gl.fontHeight(1)).toBe(50);
     expect(gl.images.size(5)).toBeUndefined();
     await gl.images.display(5, 0, 0); // size unknown again → looked up on the glasses
