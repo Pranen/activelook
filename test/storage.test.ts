@@ -4,10 +4,11 @@ import {
   CMD,
   ENGO3,
   MockTransport,
-  chunkRows,
+  chunkImage,
   createBitmap,
   defineProfile,
   encodeImage,
+  heatshrinkDecompress,
   toHex,
   type Bitmap,
   type Frame,
@@ -86,13 +87,14 @@ describe('image encoding', () => {
     expect([...encodeImage(b, 'greyAlpha8').data]).toEqual([0xff]);
     const c = createBitmap(2, 1);
     (c.data as Uint8ClampedArray).set([255, 0, 0, 255, 255, 255, 0, 0]); // red, transparent yellow
-    expect([...encodeImage(c, 'color8').data]).toEqual([0x3c, 0x00]);
-    expect([...encodeImage(c, 'colorAlpha8').data]).toEqual([0x3c, 0x00, 0x0f]);
+    const raw = (f: 'color8' | 'colorAlpha8') => { const e = encodeImage(c, f); return [...heatshrinkDecompress(e.data, e.size)]; };
+    expect(raw('color8')).toEqual([0x3c, 0x00]);
+    expect(raw('colorAlpha8')).toEqual([0x3c, 0x00, 0x0f]);
   });
 
   it('chunks whole rows', () => {
     const e = encodeImage(createBitmap(100, 20), 'grey4'); // 50 bytes per row
-    const chunks = chunkRows(e);
+    const chunks = chunkImage(e);
     expect(chunks.map(c => c.length)).toEqual([500, 500]);
   });
 });

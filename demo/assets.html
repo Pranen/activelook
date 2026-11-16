@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Assets – built into the glasses</title>
+</head>
+<body>
+  <a class="back" href="./index.html">← All demos</a>
+  <h1>Assets – built into the glasses</h1>
+  <button id="connect" class="primary">Connect glasses</button>
+  <p class="hint">
+    Every ActiveLook device ships with the configuration "ALooK": sport icons, status images, animations and
+    ready-made layouts (<a href="https://github.com/ActiveLook/Activelook-Visual-Assets">Visual Assets</a>, CC0).
+    Nothing needs to be uploaded. Select the configuration first.
+  </p>
+  <div class="row"><button id="use">Use ALooK configuration</button></div>
+
+  <h2>Images</h2>
+  <div class="row">
+    <select id="image"></select>
+    <img id="imagePreview" alt="" style="background:#000;padding:4px;border-radius:4px;max-height:60px">
+    <button id="showImage">Show image</button>
+  </div>
+
+  <h2>Layouts</h2>
+  <p class="hint">Layouts sit where ActiveLook designed them. Numbers are padded with the fonts' invisible characters so they line up.</p>
+  <div class="row">
+    <select id="layout"></select>
+    <input id="layoutText" value="123" style="width:7rem">
+    <label><input id="pad" type="checkbox" checked> pad</label>
+    <button id="showLayout">Show layout</button>
+  </div>
+  <div class="row">
+    <label>Zone <select id="zone"><option value="">designed position</option></select></label>
+  </div>
+
+  <h2>Animations</h2>
+  <div class="row">
+    <select id="anim"></select>
+    <img id="animPreview" alt="" style="background:#000;padding:4px;border-radius:4px;max-height:60px">
+    <button id="play">Play</button>
+    <button id="stop">Stop</button>
+  </div>
+
+  <div class="row"><button id="clear">Clear display</button></div>
+  <div id="log">Ready.</div>
+  <script type="module" src="./assets.ts"></script>
+</body>
+</html>

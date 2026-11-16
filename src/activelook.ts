@@ -15,6 +15,7 @@ import { Gauges } from './modules/gauges.js';
 import { Images } from './modules/images.js';
 import { Layouts } from './modules/layouts.js';
 import { Pages } from './modules/pages.js';
+import { Assets } from './assets/alook.js';
 import type { DeviceInfo, Transport } from './transport/types.js';
 import { WebBluetoothTransport, type WebBluetoothOptions } from './transport/web-bluetooth.js';
 
@@ -165,6 +166,8 @@ export class ActiveLook {
   readonly animations = new Animations(this);
   /** Fonts on the glasses. */
   readonly fonts = new Fonts(this);
+  /** Icons, layouts and animations built into every ActiveLook device (configuration "ALooK"). */
+  readonly assets = new Assets(this);
 
   private readonly emitter = new Emitter<ActiveLookEvents>();
   private readonly queue: WriteQueue;

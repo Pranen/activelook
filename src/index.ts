@@ -32,18 +32,33 @@ export { WriteQueue } from './queue.js';
 
 export { DEVICE_INFO } from './activelook.js';
 export { Configs, MAX_CONFIG_NAME, type ConfigEntry, type ConfigInfo, type ConfigWriteOptions } from './modules/configs.js';
-export { Images, type ImageInfo, type SaveImageOptions } from './modules/images.js';
+export { Images, STREAM_FORMAT, type ImageInfo, type SaveImageOptions, type StreamFormat, type StreamImageOptions } from './modules/images.js';
+export { heatshrinkCompress, heatshrinkDecompress, HEATSHRINK_WINDOW_BITS, HEATSHRINK_LOOKAHEAD_BITS } from './images/heatshrink.js';
 export { Layouts, type LayoutCommand, type LayoutDefinition, type LayoutText, type RawLayout } from './modules/layouts.js';
 export { Pages, MAX_PAGE_LAYOUTS, type PageEntry } from './modules/pages.js';
 export { Gauges, GAUGE_PORTIONS, type GaugeDefinition } from './modules/gauges.js';
 export { Animations, type AnimationOptions } from './modules/animations.js';
 export { Fonts } from './modules/fonts.js';
 export {
+  Assets,
+  padValue,
+  ALOOK_CONFIG,
+  ALOOK_IMAGES,
+  ALOOK_ANIMATIONS,
+  ALOOK_LAYOUTS,
+  ALOOK_ZONES,
+  type AlookImage,
+  type AlookAnimation,
+  type AlookLayout,
+  type AlookZone,
+  type PadOptions,
+} from './assets/alook.js';
+export {
   IMAGE_FORMAT,
   createBitmap,
   flipBitmap,
   encodeImage,
-  chunkRows,
+  chunkImage,
   type Bitmap,
   type EncodedImage,
   type EncodeOptions,

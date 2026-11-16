@@ -1,4 +1,5 @@
 import { rg } from '../protocol/palette.js';
+import { heatshrinkCompress } from './heatshrink.js';
 
 /**
  * RGBA pixels, row by row: the shape of the browser's `ImageData`
@@ -10,28 +11,39 @@ export interface Bitmap {
   data: ArrayLike<number>;
 }
 
-/** Image formats of `imgSave` (0x41). Heatshrink formats are not supported by the encoder. */
+/** Image formats of `imgSave` (0x41). */
 export const IMAGE_FORMAT = {
   /** 16 grey levels, 2 pixels per byte. */
   grey4: 0x00,
   /** 1 bit per pixel (on/off); converted to 4bpp by the glasses. */
   mono1: 0x01,
+  /** grey4, Heatshrink-compressed for a faster upload; stored uncompressed. */
+  grey4Compressed: 0x02,
+  /** grey4, Heatshrink-compressed and stored compressed (less memory, unpacked when shown). */
+  grey4CompressedStored: 0x03,
   /** 16 grey levels plus 16 alpha levels, 1 byte per pixel. */
   greyAlpha8: 0x08,
-  /** RG palette colour per pixel (colour glasses only). */
+  /** RG palette colour per pixel, Heatshrink-compressed (colour glasses only). */
   color8: 0x0a,
-  /** RG palette colour per pixel plus on/off alpha (colour glasses only). */
+  /** RG palette colour per pixel plus on/off alpha, Heatshrink-compressed (colour glasses only). */
   colorAlpha8: 0x0c,
 } as const;
 
 export type ImageFormat = keyof typeof IMAGE_FORMAT;
 
+/** Formats whose pixel data is sent Heatshrink-compressed. */
+const COMPRESSED: ReadonlySet<ImageFormat> = new Set(['grey4Compressed', 'grey4CompressedStored', 'color8', 'colorAlpha8']);
+
 export interface EncodedImage {
   format: ImageFormat;
   width: number;
   height: number;
-  /** Bytes per stored row, including padding. */
+  /** Bytes per row of the uncompressed pixel data, including padding. */
   rowBytes: number;
+  /** Size of the uncompressed pixel data (the `size` field of imgSave). */
+  size: number;
+  compressed: boolean;
+  /** Bytes as sent: pixel data, compressed for the compressed formats. */
   data: Uint8Array;
 }
 
@@ -92,7 +104,9 @@ export function encodeImage(bitmap: Bitmap, format: ImageFormat, options: Encode
   let data: Uint8Array;
 
   switch (format) {
-    case 'grey4': {
+    case 'grey4':
+    case 'grey4Compressed':
+    case 'grey4CompressedStored': {
       rowBytes = Math.ceil(w / 2);
       data = new Uint8Array(rowBytes * h);
       for (let y = 0; y < h; y++) {
@@ -147,14 +161,28 @@ export function encodeImage(bitmap: Bitmap, format: ImageFormat, options: Encode
     default:
       throw new RangeError(`Unknown image format ${String(format)}`);
   }
-  return { format, width: w, height: h, rowBytes, data };
+  const compressed = COMPRESSED.has(format);
+  return {
+    format,
+    width: w,
+    height: h,
+    rowBytes,
+    size: data.length,
+    compressed,
+    data: compressed ? heatshrinkCompress(data) : data,
+  };
 }
 
-/** Splits encoded rows into chunks of at most `maxBytes`, never splitting a row. */
-export function chunkRows(image: EncodedImage, maxBytes = 512): Uint8Array[] {
-  const rowsPerChunk = Math.max(1, Math.floor(maxBytes / image.rowBytes));
-  const step = rowsPerChunk * image.rowBytes;
-  if (image.rowBytes > maxBytes) throw new RangeError(`Image row too long (${image.rowBytes} > ${maxBytes} bytes)`);
+/**
+ * Splits image data into chunks of at most `maxBytes`. Uncompressed data is split at row
+ * boundaries (the glasses need whole rows per chunk); compressed data is a plain stream.
+ */
+export function chunkImage(image: EncodedImage, maxBytes = 512): Uint8Array[] {
+  let step = maxBytes;
+  if (!image.compressed) {
+    if (image.rowBytes > maxBytes) throw new RangeError(`Image row too long (${image.rowBytes} > ${maxBytes} bytes)`);
+    step = Math.floor(maxBytes / image.rowBytes) * image.rowBytes;
+  }
   const chunks: Uint8Array[] = [];
   for (let o = 0; o < image.data.length; o += step) chunks.push(image.data.subarray(o, o + step));
   return chunks;

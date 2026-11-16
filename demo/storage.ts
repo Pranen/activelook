@@ -1,4 +1,4 @@
-import type { ImageFormat } from '@pranen/activelook';
+import type { ImageFormat, StreamFormat } from '@pranen/activelook';
 import { $, setupDemo } from './shared';
 
 const buttons = ['cfgOpen', 'cfgList', 'cfgFree', 'cfgDelete', 'imgSave', 'imgShow', 'imgStream', 'gSave', 'gValue', 'lSave', 'lShow', 'pSave', 'pShow', 'list', 'clear'];
@@ -63,11 +63,12 @@ $('imgShow').onclick = guard(async () => {
 });
 $('imgStream').onclick = guard(async () => {
   const { x, y } = imagePos();
+  const format = value('streamFormat') as StreamFormat;
   await gl.draw(async g => {
     void g.grey(15);
-    await g.images.stream(bitmap(), x, y);
+    await g.images.stream(bitmap(), x, y, { format });
   });
-  log('Image streamed (1 bit, not stored).');
+  log(`Image streamed (${format}, not stored).`);
 });
 
 // ── 3. Gauge ────────────────────────────────────────────────────────────

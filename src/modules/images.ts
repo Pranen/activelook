@@ -2,7 +2,7 @@ import { ByteReader, s16, u16, u32 } from '../protocol/bytes.js';
 import { CMD } from '../protocol/commands.js';
 import {
   IMAGE_FORMAT,
-  chunkRows,
+  chunkImage,
   encodeImage,
   flipBitmap,
   type Bitmap,
@@ -23,6 +23,15 @@ export interface SaveImageOptions extends EncodeOptions {
   format?: ImageFormat;
 }
 
+/** Formats of the image stream (0x44). */
+export const STREAM_FORMAT = { mono1: 0x01, grey4Compressed: 0x02 } as const;
+export type StreamFormat = keyof typeof STREAM_FORMAT;
+
+export interface StreamImageOptions extends EncodeOptions {
+  /** 'mono1' (default): on/off pixels in the current colour. 'grey4Compressed': 16 grey levels. */
+  format?: StreamFormat;
+}
+
 /**
  * Images stored on the glasses (needs an open configuration, see `gl.configs.write()`),
  * and images streamed directly to the display.
@@ -40,9 +49,10 @@ export class Images extends Module {
     if (format === 'color8' || format === 'colorAlpha8') requireColor(this.gl, `Image format ${format}`);
     const { flipX, flipY } = this.gl.profile;
     const encoded = encodeImage(flipBitmap(bitmap, flipX, flipY), format, options);
-    const header = [id, ...u32(encoded.data.length), ...u16(encoded.width), IMAGE_FORMAT[format]];
+    // size = uncompressed byte count, also for compressed formats (as the official SDK does).
+    const header = [id, ...u32(encoded.size), ...u16(encoded.width), IMAGE_FORMAT[format]];
     // Header and data must reach the glasses back to back: queue them together.
-    await this.gl.sendMany([[CMD.imgSave, header], ...chunkRows(encoded).map(c => [CMD.imgSave, c] as const)]);
+    await this.gl.sendMany([[CMD.imgSave, header], ...chunkImage(encoded).map(c => [CMD.imgSave, c] as const)]);
     this.sizes.set(id, { width: bitmap.width, height: bitmap.height });
   }
 
@@ -54,15 +64,17 @@ export class Images extends Module {
   }
 
   /**
-   * Sends a 1-bit image straight to the display without storing it (no configuration
-   * needed). "On" pixels are drawn with the current grey level / colour.
+   * Sends an image straight to the display without storing it (no configuration needed).
+   * 'mono1' draws "on" pixels with the current grey level / colour; 'grey4Compressed'
+   * shows 16 grey levels.
    */
-  async stream(bitmap: Bitmap, x: number, y: number, options: EncodeOptions = {}): Promise<void> {
+  async stream(bitmap: Bitmap, x: number, y: number, options: StreamImageOptions = {}): Promise<void> {
+    const format = options.format ?? 'mono1';
     const { flipX, flipY } = this.gl.profile;
-    const encoded = encodeImage(flipBitmap(bitmap, flipX, flipY), 'mono1', options);
+    const encoded = encodeImage(flipBitmap(bitmap, flipX, flipY), format, options);
     const [dx, dy] = this.gl.boxToDevice(x, y, bitmap.width, bitmap.height);
-    const header = [...u32(encoded.data.length), ...u16(encoded.width), ...s16(dx), ...s16(dy), IMAGE_FORMAT.mono1];
-    await this.gl.sendMany([[CMD.imgStream, header], ...chunkRows(encoded).map(c => [CMD.imgStream, c] as const)]);
+    const header = [...u32(encoded.size), ...u16(encoded.width), ...s16(dx), ...s16(dy), STREAM_FORMAT[format]];
+    await this.gl.sendMany([[CMD.imgStream, header], ...chunkImage(encoded).map(c => [CMD.imgStream, c] as const)]);
   }
 
   async list(): Promise<ImageInfo[]> {
@@ -87,6 +99,11 @@ export class Images extends Module {
   }
 
   /** Known size of an image, if it was saved or listed in this session. */
+  /** Tells the library the size of an image already on the glasses (saves a list() round trip). */
+  remember(id: number, width: number, height: number): void {
+    this.sizes.set(checkId(id, 'Image'), { width, height });
+  }
+
   size(id: number): { width: number; height: number } | undefined {
     return this.sizes.get(id);
   }

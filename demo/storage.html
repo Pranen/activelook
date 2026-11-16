@@ -34,6 +34,8 @@
     <label>Format
       <select id="imgFormat">
         <option value="grey4">grey4 (16 grey levels)</option>
+        <option value="grey4Compressed">grey4Compressed (faster upload)</option>
+        <option value="grey4CompressedStored">grey4CompressedStored (less memory)</option>
         <option value="mono1">mono1 (on/off)</option>
         <option value="greyAlpha8">greyAlpha8</option>
         <option value="color8">color8 (RG colour)</option>
@@ -44,7 +46,13 @@
   <div class="row">
     <button id="imgSave">Save as image 1</button>
     <button id="imgShow">Display image 1</button>
-    <button id="imgStream">Stream (not stored, 1 bit)</button>
+    <button id="imgStream">Stream (not stored)</button>
+    <label>Stream format
+      <select id="streamFormat">
+        <option value="mono1">mono1 (on/off)</option>
+        <option value="grey4Compressed">grey4Compressed (16 grey levels)</option>
+      </select>
+    </label>
   </div>
 
   <h2>3. Gauge</h2>

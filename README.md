@@ -140,7 +140,7 @@ await gl.configs.write('MYAPP', { version: 1, password: 1234 });
 
 // Image from a canvas (as the wearer should see it; mirroring is handled by the library)
 const bitmap = canvas.getContext('2d')!.getImageData(0, 0, 64, 64);
-await gl.images.save(1, bitmap, { format: 'grey4' }); // or mono1, greyAlpha8, color8, colorAlpha8
+await gl.images.save(1, bitmap, { format: 'grey4' }); // see the list of formats below
 await gl.images.display(1, 20, 40);
 
 // Gauge: ring of 16 portions, filled in percent
@@ -182,19 +182,51 @@ the library flips image pixels and needs an object's size to place it, so it rem
 sizes of images and layouts saved in the session and otherwise reads them from the glasses.
 Animations need their size passed in (`width`, `height`).
 
-Not supported: creating animations and Heatshrink-compressed images (both need a Heatshrink
-encoder), and generating fonts. Fonts made with the ActiveLook
-[Config-Generator](https://github.com/ActiveLook/Config-Generator) can be uploaded with
-`gl.fonts.save()`.
+Image formats: `grey4` (16 grey levels), `grey4Compressed` (same, Heatshrink-compressed for a
+faster upload), `grey4CompressedStored` (also kept compressed on the glasses), `mono1` (on/off),
+`greyAlpha8` (grey + transparency), `color8` and `colorAlpha8` (RG colours, always sent
+compressed). `images.stream()` sends `mono1` or `grey4Compressed` without storing anything.
+The Heatshrink encoder (`heatshrinkCompress`, window 8 / lookahead 4 bits, as in the official
+SDKs) is exported too.
 
-**Where the API documentation is ambiguous**, the library follows the most plausible reading;
-these points are not yet verified on hardware:
+Not supported: creating animations (delta frames) and generating fonts. Fonts made with the
+ActiveLook [Config-Generator](https://github.com/ActiveLook/Config-Generator) can be uploaded
+with `gl.fonts.save()`.
 
-- orientation of stored images and of the 1-bit image stream on mirrored displays
-- pixel format of `color8` / `colorAlpha8` (one RG palette value per pixel, sent uncompressed)
+**Where the API documentation is ambiguous**, the library follows the most plausible reading.
+Verified on ENGO 3: `grey4` images are stored and shown the right way round; uncompressed
+colour images are rejected by the glasses. Not yet verified on hardware:
+
+- colour images sent Heatshrink-compressed (`color8`, `colorAlpha8`), one RG palette value per pixel
+- `grey4Compressed`, `grey4CompressedStored`, `greyAlpha8`, `mono1` and the image stream
 - which gauge portion sits where (rotated by half a turn on mirrored displays)
 - text in layouts and pages is sent NUL-terminated
 - `nb_points` of polylines inside layouts is the number of points
+
+## Built-in assets (ALooK configuration)
+
+Every ActiveLook device ships with the configuration `ALooK`, documented in
+[Activelook-Visual-Assets](https://github.com/ActiveLook/Activelook-Visual-Assets) (CC0):
+79 icons (sport metrics, battery, GPS, Bluetooth …), 13 animations and 175 layouts for one to
+six values. `gl.assets` makes them usable by name, with typed tables (`ALOOK_IMAGES`,
+`ALOOK_LAYOUTS`, `ALOOK_ANIMATIONS`, `ALOOK_ZONES`) generated from that repository's README
+(`scripts/gen-alook-assets.mjs`).
+
+```ts
+import { padValue } from '@pranen/activelook';
+
+await gl.assets.use(); // selects the ALooK configuration
+await gl.assets.showImage('heart-beat_40x40', 20, 40); // anywhere, logical coordinates
+await gl.assets.showLayout('heartbeat_full', padValue('72')); // at its designed position
+await gl.assets.showLayoutInZone('heartbeat_half', '3D Half M1', padValue('72'));
+await gl.assets.playAnimation('dancing_dots');
+```
+
+The ALooK fonts have two invisible "ghost" characters so values line up: `$` is as wide as a
+digit, `&` as wide as `.` or `:`. `padValue('123')` gives `&$123` (right-aligned in a layout
+made for 4 digits and a separator). Layouts and animations use the positions ActiveLook
+designed them for. To use your own stored objects again, select your configuration with
+`gl.configs.select(name)`.
 
 ## Transport, flow control and errors
 
