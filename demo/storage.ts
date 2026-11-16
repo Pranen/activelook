@@ -4,7 +4,7 @@ import { $, setupDemo } from './shared';
 const buttons = [
   'cfgOpen', 'cfgList', 'cfgFree', 'cfgDelete', 'imgSave', 'imgShow', 'imgStream', 'gSave', 'gValue',
   'lSave', 'lShow', 'pSave', 'pShow', 'list', 'clear',
-  'bCfg', 'bOpen', 'bBack', 'bPrev', 'bNext', 'bFont', 'bLayouts',
+  'bCfg', 'bOpen', 'bBack', 'bPrev', 'bNext', 'bFont', 'bLayouts', 'bIdDown', 'bShow', 'bIdUp',
 ];
 const { gl, log, guard } = setupDemo({
   controls: buttons,
@@ -183,12 +183,16 @@ async function showImage(step: number): Promise<void> {
   if (!images.length) { log('Select a configuration first.'); return; }
   imageIndex = (imageIndex + step + images.length) % images.length;
   const img = images[imageIndex]!;
+  await drawImage(img, `#${img.id}  ${img.width}x${img.height}  (${imageIndex + 1}/${images.length})`);
+}
+
+/** Shows an image centred in the visible area with a label above it. */
+async function drawImage(img: ImageInfo, label: string): Promise<void> {
   const sa = gl.safeArea;
   const font = labelFont();
   const top = font === undefined ? 0 : gl.fontHeight(font) + 6;
   const x = sa.x + Math.max(0, Math.round((sa.width - img.width) / 2));
   const y = sa.y + top + Math.max(0, Math.round((sa.height - top - img.height) / 2));
-  const label = `#${img.id}  ${img.width}x${img.height}  (${imageIndex + 1}/${images.length})`;
   await gl.draw(async g => {
     if (font !== undefined) await g.text(label, sa.x + 4, sa.y + 2, { font });
     await g.images.display(img.id, x, y);
@@ -197,6 +201,21 @@ async function showImage(step: number): Promise<void> {
 }
 $('bPrev').onclick = guard(() => showImage(-1));
 $('bNext').onclick = guard(() => showImage(1));
+
+// Any image by id and size – also those beyond the 105 the glasses list.
+async function showById(step: number): Promise<void> {
+  const id = Math.min(254, Math.max(0, num('bId') + step));
+  const width = num('bW'), height = num('bH');
+  if (!(width > 0 && height > 0)) { log('Enter width and height.'); return; }
+  $<HTMLInputElement>('bId').value = String(id);
+  const listed = images.find(i => i.id === id);
+  gl.images.remember(id, width, height); // skips the list lookup that only knows 105 images
+  await drawImage({ id, width, height }, `#${id}  ${width}x${height}  ${listed ? '(listed)' : '(not listed)'}`);
+  log(`Image ${id} shown as ${width}×${height}${listed ? `, listed as ${listed.width}×${listed.height}` : ''}.`);
+}
+$('bShow').onclick = guard(() => showById(0));
+$('bIdDown').onclick = guard(() => showById(-1));
+$('bIdUp').onclick = guard(() => showById(1));
 
 $('bFont').onclick = guard(async () => {
   const fonts = [...gl.fonts.installed].sort((a, b) => a.id - b.id);
